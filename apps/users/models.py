@@ -15,11 +15,7 @@ from PIL import Image, ImageOps
 from tower import ugettext as _, ugettext_lazy as _lazy
 
 from groups.models import Group, Skill
-
-# This is because we are using MEDIA_ROOT wrong in 1.4
-from django.core.files.storage import FileSystemStorage
-fs = FileSystemStorage(location=settings.UPLOAD_ROOT,
-                       base_url='/media/uploads/')
+from phonebook.helpers import gravatar
 
 
 class UserProfile(SearchMixin, models.Model):
@@ -39,8 +35,7 @@ class UserProfile(SearchMixin, models.Model):
     groups = models.ManyToManyField('groups.Group')
     skills = models.ManyToManyField('groups.Skill')
     bio = models.TextField(verbose_name=_lazy(u'Bio'), default='', blank=True)
-    photo = ImageField(default='', blank=True, storage=fs,
-                       upload_to='userprofile')
+    photo = ImageField(default='', blank=True, upload_to='userprofile/photo')
     display_name = models.CharField(max_length=255, default='', blank=True)
     ircname = models.CharField(max_length=63,
                                verbose_name=_lazy(u'IRC Nickname'),
@@ -115,7 +110,7 @@ class UserProfile(SearchMixin, models.Model):
     def photo_url(self):
         if self.photo:
             return self.photo.url
-        return '/media/img/unknown.png'
+        return gravatar(self.user.email)
 
     def vouch(self, vouched_by, system=True, commit=True):
         changed = system  # do we need to do a vouch?
