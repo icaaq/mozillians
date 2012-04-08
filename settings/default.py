@@ -174,8 +174,12 @@ INSTALLED_APPS = (
     'south',
 )
 
+HMAC_KEYS = {
+    '2011-01-01': 'cheesecake',
+}
+
 PASSWORD_HASHERS = (
-    'users.hashers.SHA256PasswordHasher',
+    'common.hashers.BcryptHMACPasswordHasher',
     'django.contrib.auth.hashers.SHA1PasswordHasher',
     'django.contrib.auth.hashers.MD5PasswordHasher',
     'django.contrib.auth.hashers.UnsaltedMD5PasswordHasher',
