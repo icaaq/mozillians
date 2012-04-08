@@ -167,11 +167,11 @@ INSTALLED_APPS = (
     'csp',
     'commonware.response.cookies',
     'django_browserid',
-    'django_nose',
     'djcelery',
     'elasticutils',
     'sorl.thumbnail',
     'south',
+    'django_nose',  # Load last to enforce dominance.
 )
 
 HMAC_KEYS = {
