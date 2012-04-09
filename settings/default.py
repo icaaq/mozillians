@@ -194,7 +194,7 @@ def get_password_hashers():
     """
     # Where is the bcrypt hashers file located?
     hashers_base = 'common.hashers.{0}'
-    algo_name = lambda date: 'bcrypt{0}'.format(date.replace('-', '_'))
+    algo_name = lambda hmac_id: 'bcrypt{0}'.format(hmac_id.replace('-', '_'))
 
     dynamic_hasher_names = [algo_name(key) for key in HMAC_KEYS.keys()]
     dynamic_hashers = [hashers_base.format(k) for k in dynamic_hasher_names]

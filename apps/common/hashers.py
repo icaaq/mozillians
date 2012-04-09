@@ -10,30 +10,33 @@ from django.utils.encoding import smart_str
 
 log = logging.getLogger('common.hashers')
 
-algo_name = lambda date: 'bcrypt{0}'.format(date.replace('-', '_'))
+algo_name = lambda hmac_id: 'bcrypt{0}'.format(hmac_id.replace('-', '_'))
 
 
-def get_hasher(date):
+def get_hasher(hmac_id):
     """
-    Dynamically create password hashers based on date.
+    Dynamically create password hashers based on hmac_id.
 
-    This class takes the date corresponding to an HMAC_KEY and creates a
+    This class takes the hmac_id corresponding to an HMAC_KEY and creates a
     password hasher class based off of it. This allows us to use djangos
-    build in updating mechanisms to automatically update the HMAC KEYS.
+    built-in updating mechanisms to automatically update the HMAC KEYS.
     """
-    dash_date = date.replace('_', '-')
+    dash_hmac_id = hmac_id.replace('_', '-')
 
     class BcryptHMACPasswordHasher(BCryptPasswordHasher):
-        algorithm = algo_name(date)
+        algorithm = algo_name(hmac_id)
         rounds = 12
 
         def encode(self, password, salt):
 
-            shared_key = settings.HMAC_KEYS[dash_date]
+            shared_key = settings.HMAC_KEYS[dash_hmac_id]
 
             hmac_value = self._hmac_create(password, shared_key)
             bcrypt_value = bcrypt.hashpw(hmac_value, salt)
-            return '{0}{1}${2}'.format(self.algorithm, bcrypt_value, dash_date)
+            return '{0}{1}${2}'.format(
+                self.algorithm,
+                bcrypt_value,
+                dash_hmac_id)
 
         def verify(self, password, encoded):
             algo_and_hash, key_ver = encoded.rsplit('$', 1)
@@ -65,7 +68,7 @@ if not settings.HMAC_KEYS:
 # passwords
 globals()['BcryptHMACPasswordHasher'] = get_hasher('')
 
-# For each HMAC_KEY dynamically create a hasher to be imported.
+# For each HMAC_KEY, dynamically create a hasher to be imported.
 for hmac_key in settings.HMAC_KEYS.keys():
-    date = hmac_key.replace('-', '_')
-    globals()[algo_name(date)] = get_hasher(date)
+    hmac_id = hmac_key.replace('-', '_')
+    globals()[algo_name(hmac_id)] = get_hasher(hmac_id)
