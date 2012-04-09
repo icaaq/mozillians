@@ -24,7 +24,7 @@ class BcryptHMACPasswordHasher(BCryptPasswordHasher):
 
         hmac_value = self._hmac_create(password, shared_key)
         bcrypt_value = bcrypt.hashpw(hmac_value, salt)
-        return '{0}{1}${2}'.format(self.algorithm, bcrypt_value, latest_key_id)
+        return 'bcrypt{0}${1}'.format(bcrypt_value, latest_key_id)
 
     def verify(self, password, encoded):
         algo_and_hash, key_ver = encoded.rsplit('$', 1)
@@ -45,3 +45,17 @@ class BcryptHMACPasswordHasher(BCryptPasswordHasher):
                 smart_str(password),
                 hashlib.sha512).digest())
         return hmac_value
+
+
+class BcryptHMACPasswordhasherNope(BcryptHMACPasswordHasher):
+    """
+    Force django to re-encode passwords.
+
+    This shell password hasher forces us to re encode the password every time
+    we get a valid check on a password so that incase the HMAC_KEYS have
+    changed we can update the encoding. Because the algorithm is set to
+    something that it can never be django will always try to "update" the
+    password on a sucessful password check which allows us to ensure the right
+    HMAC_KEY is being used.
+    """
+    algorithm = 'bcrypt-nope'

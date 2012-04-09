@@ -179,6 +179,7 @@ HMAC_KEYS = {
 }
 
 PASSWORD_HASHERS = (
+    'common.hashers.BcryptHMACPasswordHasherNope',
     'common.hashers.BcryptHMACPasswordHasher',
     'django.contrib.auth.hashers.SHA1PasswordHasher',
     'django.contrib.auth.hashers.MD5PasswordHasher',
