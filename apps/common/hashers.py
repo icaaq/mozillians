@@ -10,52 +10,62 @@ from django.utils.encoding import smart_str
 
 log = logging.getLogger('common.hashers')
 
-
-class BcryptHMACPasswordHasher(BCryptPasswordHasher):
-    algorithm = 'bcrypt'
-    rounds = 12
-
-    def encode(self, password, salt):
-        if not settings.HMAC_KEYS:
-            raise ImportError('settings.HMAC_KEYS must not be empty.')
-
-        latest_key_id = max(settings.HMAC_KEYS.keys())
-        shared_key = settings.HMAC_KEYS[latest_key_id]
-
-        hmac_value = self._hmac_create(password, shared_key)
-        bcrypt_value = bcrypt.hashpw(hmac_value, salt)
-        return 'bcrypt{0}${1}'.format(bcrypt_value, latest_key_id)
-
-    def verify(self, password, encoded):
-        algo_and_hash, key_ver = encoded.rsplit('$', 1)
-        try:
-            shared_key = settings.HMAC_KEYS[key_ver]
-        except KeyError:
-            log.info('Invalid shared key version "{0}"'.format(key_ver))
-            return False
-
-        bc_value = algo_and_hash[6:]  # Yes, bcrypt <3s the leading $.
-        hmac_value = self._hmac_create(password, shared_key)
-        return bcrypt.hashpw(hmac_value, bc_value) == bc_value
-
-    def _hmac_create(self, password, shared_key):
-        """Create HMAC value based on pwd"""
-        hmac_value = base64.b64encode(hmac.new(
-                smart_str(shared_key),
-                smart_str(password),
-                hashlib.sha512).digest())
-        return hmac_value
+algo_name = lambda date: 'bcrypt{0}'.format(date.replace('-', '_'))
 
 
-class BcryptHMACPasswordhasherNope(BcryptHMACPasswordHasher):
+def get_hasher(date):
     """
-    Force django to re-encode passwords.
+    Dynamically create password hashers based on date.
 
-    This shell password hasher forces us to re encode the password every time
-    we get a valid check on a password so that incase the HMAC_KEYS have
-    changed we can update the encoding. Because the algorithm is set to
-    something that it can never be django will always try to "update" the
-    password on a sucessful password check which allows us to ensure the right
-    HMAC_KEY is being used.
+    This class takes the date corresponding to an HMAC_KEY and creates a
+    password hasher class based off of it. This allows us to use djangos
+    build in updating mechanisms to automatically update the HMAC KEYS.
     """
-    algorithm = 'bcrypt-nope'
+    dash_date = date.replace('_', '-')
+
+    class BcryptHMACPasswordHasher(BCryptPasswordHasher):
+        algorithm = algo_name(date)
+        rounds = 12
+
+        def encode(self, password, salt):
+
+            shared_key = settings.HMAC_KEYS[dash_date]
+
+            hmac_value = self._hmac_create(password, shared_key)
+            bcrypt_value = bcrypt.hashpw(hmac_value, salt)
+            return '{0}{1}${2}'.format(self.algorithm, bcrypt_value, dash_date)
+
+        def verify(self, password, encoded):
+            algo_and_hash, key_ver = encoded.rsplit('$', 1)
+            try:
+                shared_key = settings.HMAC_KEYS[key_ver]
+            except KeyError:
+                log.info('Invalid shared key version "{0}"'.format(key_ver))
+                return False
+
+            bc_value = '${0}'.format(algo_and_hash.split('$', 1)[1])  # Yes, bcrypt <3s the leading $.
+            hmac_value = self._hmac_create(password, shared_key)
+            return bcrypt.hashpw(hmac_value, bc_value) == bc_value
+
+        def _hmac_create(self, password, shared_key):
+            """Create HMAC value based on pwd"""
+            hmac_value = base64.b64encode(hmac.new(
+                    smart_str(shared_key),
+                    smart_str(password),
+                    hashlib.sha512).digest())
+            return hmac_value
+
+    return BcryptHMACPasswordHasher
+
+# We must have HMAC_KEYS. If not, let's raise an import error.
+if not settings.HMAC_KEYS:
+    raise ImportError('settings.HMAC_KEYS must not be empty.')
+
+# Create the basic 'bcrypt' algorithm for compatibility with django_sha2
+# passwords
+globals()['BcryptHMACPasswordHasher'] = get_hasher('')
+
+# For each HMAC_KEY dynamically create a hasher to be imported.
+for hmac_key in settings.HMAC_KEYS.keys():
+    date = hmac_key.replace('-', '_')
+    globals()[algo_name(date)] = get_hasher(date)

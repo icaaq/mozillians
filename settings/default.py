@@ -176,15 +176,33 @@ INSTALLED_APPS = (
 
 HMAC_KEYS = {
     '2011-01-01': 'cheesecake',
+    '2012-01-01': 'foobar',
 }
 
-PASSWORD_HASHERS = (
-    'common.hashers.BcryptHMACPasswordHasherNope',
+BASE_PASSWORD_HASHERS = (
     'common.hashers.BcryptHMACPasswordHasher',
     'django.contrib.auth.hashers.SHA1PasswordHasher',
     'django.contrib.auth.hashers.MD5PasswordHasher',
     'django.contrib.auth.hashers.UnsaltedMD5PasswordHasher',
 )
+
+
+def get_password_hashers():
+    """
+    Returns the names of the dynamic and regular hashers
+    created in our hashers file
+    """
+    # Where is the bcrypt hashers file located?
+    hashers_base = 'common.hashers.{0}'
+    algo_name = lambda date: 'bcrypt{0}'.format(date.replace('-', '_'))
+
+    dynamic_hasher_names = [algo_name(key) for key in HMAC_KEYS.keys()]
+    dynamic_hashers = [hashers_base.format(k) for k in dynamic_hasher_names]
+
+    return dynamic_hashers + list(BASE_PASSWORD_HASHERS)
+
+PASSWORD_HASHERS = get_password_hashers()
+
 
 SESSION_COOKIE_HTTPONLY = True
 SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
